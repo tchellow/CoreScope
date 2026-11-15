@@ -524,7 +524,7 @@ test('OBS-1 radio history: radio, radio_id and timestamps are escaped', () => {
   // Through the real formatter, as on the page.
   const window = {};
   new Function('window', fs.readFileSync('public/rf-params.js', 'utf8'))(window);
-  new Function('window', 'escapeHtml', m[0])(window, escapeHtml);
+  new Function('window', 'escapeHtml', 'tr', m[0])(window, escapeHtml, tr);
   const evil = TAG_PAYLOAD + ATTR_PAYLOAD;
   const html = window.ObserverDetailRadioHistory.render([
     { radio: evil, radio_id: evil, first_seen: evil, last_seen: evil },

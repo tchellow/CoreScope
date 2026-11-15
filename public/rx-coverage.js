@@ -192,8 +192,8 @@
     }
     var u = escapeHtml(url);
     return '<div class="rx-app" id="rxApp">' +
-      (svg ? '<div class="rx-app-qr" role="img" aria-label="QR code of ' + u + '">' + svg + '</div>' : '') +
-      '<div class="rx-app-text">Map coverage with CoreDrive RX: scan this in the app (Settings &gt; Deployment) or open it on your phone.' +
+      (svg ? '<div class="rx-app-qr" role="img" aria-label="' + escapeHtml(tr('QR code of {url}', { url: url })) + '">' + svg + '</div>' : '') +
+      '<div class="rx-app-text">' + escapeHtml(tr('Map coverage with CoreDrive RX: scan this in the app (Settings > Deployment) or open it on your phone.')) +
       '<br><a class="rx-app-url" href="' + u + '" target="_blank" rel="noopener">' + u + '</a></div>' +
       '</div>';
   }

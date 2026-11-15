@@ -42,7 +42,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
   };
 
   // The stored flag is sticky; it is not a current location or bridge finding.
-  const FOREIGN_ADVERT_DESCRIPTION = 'An advert from this node was flagged outside the configured area at ingestion. This historical flag does not indicate its current location.';
+  function foreignAdvertDescription() { return tr('An advert from this node was flagged outside the configured area at ingestion. This historical flag does not indicate its current location.'); }
   const FOREIGN_ADVERT_INDICATOR = '<span class="map-foreign-indicator" aria-hidden="true"><svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-warning"/></svg></span>';
 
   // Roles loaded from shared roles.js (ROLE_STYLE, ROLE_LABELS, ROLE_COLORS globals)
@@ -469,7 +469,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
                             : (tr('repeater hash {hash}', { hash: shortHash }) + ariaWidth + scopeAria);
     var isForeign = node.foreign === true;
     if (isForeign) {
-      var foreignTitle = tr('Foreign advert flag: {description}', { description: tr(FOREIGN_ADVERT_DESCRIPTION) });
+      var foreignTitle = tr('Foreign advert flag: {description}', { description: foreignAdvertDescription() });
       ariaStatus += ', ' + foreignTitle;
       labelTitle += (labelTitle ? ' — ' : '') + foreignTitle;
     }
@@ -2215,7 +2215,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
       var scopeLabel = scopeState ? scopeStateLabel(scopeState) : '';
       var markerAlt = (node.name || tr('Unknown')) + ' (' + tr(node.role || 'node') + (isAlsoObserver ? ' + ' + tr('observer') : '') + ')' +
         (scopeLabel ? ', ' + tr('scope config {state}', { state: scopeLabel }) : '') +
-        (isForeign ? ', Foreign advert flag: ' + FOREIGN_ADVERT_DESCRIPTION : '');
+        (isForeign ? ', ' + tr('Foreign advert flag: {description}', { description: foreignAdvertDescription() }) : '');
       allMarkers.push({ latLng, node, icon, isLabel: useLabel, collisionBounds: sizeWarnings ? icon.options.collisionBounds : null, popupFn: function() { return buildPopup(node); }, alt: markerAlt, title: scopeLabel || isForeign ? markerAlt : '' });
     }
 
@@ -2231,7 +2231,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
         if (obs.id && displayedNodePubkeys.has(obs.id.toLowerCase())) continue;
         const icon = makeMarkerIcon('observer');
         const latLng = L.latLng(obs.lat, obs.lon);
-        allMarkers.push({ latLng, node: obs, icon, isLabel: false, collisionBounds: sizeWarnings ? icon.options.collisionBounds : null, popupFn: function() { return buildObserverPopup(obs); }, alt: (obs.name || obs.id || 'Unknown') + ' (observer)' });
+        allMarkers.push({ latLng, node: obs, icon, isLabel: false, collisionBounds: sizeWarnings ? icon.options.collisionBounds : null, popupFn: function() { return buildObserverPopup(obs); }, alt: (obs.name || obs.id || tr('Unknown')) + ' (' + tr('observer') + ')' });
       }
     }
 
@@ -2395,7 +2395,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
       <div class="map-popup" style="font-family:var(--font);min-width:180px;">
         <h3 style="font-weight:700;font-size:14px;margin:0 0 4px;">${safeEsc(node.name || tr('Unknown'))}</h3>
         ${roleBadge}${obsBadge}
-        ${node.foreign === true ? '<p class="map-foreign-notice"><strong>Foreign advert flag</strong><br>' + FOREIGN_ADVERT_DESCRIPTION + '</p>' : ''}
+        ${node.foreign === true ? '<p class="map-foreign-notice"><strong>' + tr('Foreign advert flag') + '</strong><br>' + foreignAdvertDescription() + '</p>' : ''}
         <dl style="margin-top:8px;font-size:12px;">
           ${hashPrefixRow}
           ${mbRow}

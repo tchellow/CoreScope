@@ -1808,7 +1808,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
           <button class="btn-icon" data-action="pkt-byop" title="${tr('Bring Your Own Packet')}" aria-label="${tr('Bring Your Own Packet - paste raw packet hex for analysis')}" aria-haspopup="dialog"><svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-package"/></svg> BYOP</button>
         </div>
       </div>
-      <p id="packetObserverContext" class="text-muted" style="font-size:var(--fs-sm);margin-bottom:var(--space-md)">Packets shown are based on observer reports received by this instance. Counts reflect a partial view of network traffic, not network-wide totals or device firmware counters.</p>
+      <p id="packetObserverContext" class="text-muted" style="font-size:var(--fs-sm);margin-bottom:var(--space-md)">${tr('Packets shown are based on observer reports received by this instance. Counts reflect a partial view of network traffic, not network-wide totals or device firmware counters.')}</p>
       <div class="filter-group pkt-filter-expr" style="flex:1;margin-bottom:8px;position:relative">
         <input type="text" id="packetFilterInput" class="packet-filter-input"
           placeholder='${tr('Filter: {example}', { example: 'type == Advert && snr > 5 · payload.name contains "Gilroy"' })}'
@@ -3842,7 +3842,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
         <dt>${tr('Path')}</dt><dd>${displayHopCount > 0 ? `<span class="badge badge-info">${trn(displayHopCount, '{count} hop', '{count} hops')}</span> ` + '<span class="detail-path-hops">' + renderPath(pathHops, effectivePkt.observer_id, { entries: pathEntries }) + '</span>' : '— (' + tr('direct') + ')'}</dd>
         <dt>${tr('Timestamp')}</dt><dd>${renderTimestampCell(effectivePkt.timestamp)}</dd>
         <dt>${tr('Observer')}</dt><dd>${escapeHtml(obsNameOnly(effectivePkt.observer_id))}${obsIataBadge(effectivePkt)}</dd>
-        ${effectivePkt.radio ? `<dt>Radio</dt><dd data-testid="detail-radio" title="Radio setting the observer was on when it heard this packet">${radioSettingHtml(effectivePkt.radio)}</dd>` : ''}
+        ${effectivePkt.radio ? `<dt>${tr('Radio')}</dt><dd data-testid="detail-radio" title="${tr('Radio setting the observer was on when it heard this packet')}">${radioSettingHtml(effectivePkt.radio)}</dd>` : ''}
         ${locationHtml ? `<dt>${tr('Location')}</dt><dd>${locationHtml}</dd>` : ''}
         <dt>SNR / RSSI</dt><dd>${snr != null ? snr + ' dB' : '—'} / ${rssi != null ? rssi + ' dBm' : '—'}</dd>
         <dt>${tr('Route Type')}</dt><dd>${routeTypeName(pkt.route_type)}</dd>
@@ -3877,7 +3877,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
             <th style="padding:4px 6px;text-align:left">${tr('Hops')}</th>
             <th style="padding:4px 6px;text-align:left">SNR</th>
             <th style="padding:4px 6px;text-align:left">RSSI</th>
-            ${obsHaveRadio ? '<th style="padding:4px 6px;text-align:left">Radio</th>' : ''}
+            ${obsHaveRadio ? '<th style="padding:4px 6px;text-align:left">' + tr('Radio') + '</th>' : ''}
             <th style="padding:4px 6px;text-align:left">${tr('Time')}</th>
           </tr></thead>
           <tbody>${observations.map(o => {

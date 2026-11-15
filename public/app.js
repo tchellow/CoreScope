@@ -558,7 +558,7 @@ function formatTimestampWithTooltip(isoString, mode) {
 function renderTimestampHtml(isoString) {
   const f = formatTimestampWithTooltip(isoString);
   const warn = f.isFuture
-    ? ' <span class="timestamp-future-icon" title="Timestamp is in the future — node clock may be skewed"><svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-warning"/></svg></span>'
+    ? ' <span class="timestamp-future-icon" title="' + tr('Timestamp is in the future — node clock may be skewed') + '"><svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-warning"/></svg></span>'
     : '';
   return `<span class="timestamp-text" title="${escapeHtml(f.tooltip)}">${escapeHtml(f.text)}</span>${warn}`;
 }
@@ -1198,18 +1198,18 @@ function setSiteTitle(title) {
 function routeTitle(page, param) {
   const id = param ? param.split('/')[0].slice(0, 12) : '';
   if (id && ['nodes', 'node-analytics', 'node-reach'].includes(page)) {
-    return 'Node ' + id + (page === 'node-reach' ? ' | Reach' : page === 'node-analytics' ? ' | Analytics' : '');
+    return tr('Node {id}', { id: id }) + (page === 'node-reach' ? ' | ' + tr('Reach') : page === 'node-analytics' ? ' | ' + tr('Analytics') : '');
   }
-  if (id && (page === 'packets' || page === 'packet-detail')) return 'Packet ' + id;
-  if (page === 'observer-detail') return 'Observer ' + id;
+  if (id && (page === 'packets' || page === 'packet-detail')) return tr('Packet {id}', { id: id });
+  if (page === 'observer-detail') return tr('Observer {id}', { id: id });
   const names = {
-    home: '', packets: 'Packets', nodes: 'Nodes', map: 'Map', live: 'Live',
-    channels: 'Channels', observers: 'Observers', analytics: 'Analytics',
-    'scope-audit': 'Scope Audit', perf: 'Performance', 'audio-lab': 'Audio Lab',
-    'tools-landing': 'Tools', traces: 'Packet Trace', 'path-inspector': 'Path Inspector',
-    account: 'Account', admin: 'Admin', compare: 'Observer Comparison', 'rx-coverage': 'RX Coverage',
+    home: '', packets: tr('Packets'), nodes: tr('Nodes'), map: tr('Map'), live: tr('Live'),
+    channels: tr('Channels'), observers: tr('Observers'), analytics: tr('Analytics'),
+    'scope-audit': tr('Scope Audit'), perf: tr('Performance'), 'audio-lab': tr('Audio Lab'),
+    'tools-landing': tr('Tools'), traces: tr('Packet Trace'), 'path-inspector': tr('Path Inspector'),
+    account: tr('Account'), admin: tr('Admin'), compare: tr('Observer Comparison'), 'rx-coverage': tr('RX Coverage'),
   };
-  return Object.prototype.hasOwnProperty.call(names, page) ? names[page] : 'Not Found';
+  return Object.prototype.hasOwnProperty.call(names, page) ? names[page] : tr('Not Found');
 }
 function setRouteTitle(page, param) {
   // Ignore a detail callback from a page the user already left.

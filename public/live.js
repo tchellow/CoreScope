@@ -2621,7 +2621,7 @@
       const health = getHealthStatus(n.role, heardMs);
       const uncertain = getNodeStatus(activityNode) === 'uncertain';
       const statusDot = uncertain ? 'text-muted' : health === 'healthy' ? 'health-green' : health === 'degraded' ? 'health-yellow' : 'health-red';
-      const statusLabel = uncertain ? 'Uncertain' : health === 'healthy' ? tr('Online') : health === 'degraded' ? tr('Degraded') : tr('Offline');
+      const statusLabel = uncertain ? tr('Uncertain') : health === 'healthy' ? tr('Online') : health === 'degraded' ? tr('Degraded') : tr('Offline');
 
       let html = `
         <div style="padding:16px;">

@@ -211,16 +211,16 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
     const hasCertainRelay = Number.isFinite(certainMs);
     const certainAge = Date.now() - certainMs;
     let value = hasRelay
-      ? renderNodeTimestampHtml(n.last_relayed) + ' <span style="color:var(--text-muted);font-size:11px">attributed relay observation</span>'
-      : '<span style="color:var(--text-muted)">' + (hasCertainRelay ? 'no attributed non-advert relay' : 'never observed as relay hop') + '</span>';
+      ? renderNodeTimestampHtml(n.last_relayed) + ' <span style="color:var(--text-muted);font-size:11px">' + tr('attributed relay observation') + '</span>'
+      : '<span style="color:var(--text-muted)">' + (hasCertainRelay ? tr('no attributed non-advert relay') : tr('never observed as relay hop')) + '</span>';
     if (hasCertainRelay && certainAge >= 0 && certainAge < HEALTH_THRESHOLDS.relayActiveMs) {
-      value += ' <span data-certain-relay-active style="color:var(--status-green-text);font-size:11px">actively relaying</span>';
+      value += ' <span data-certain-relay-active style="color:var(--status-green-text);font-size:11px">' + tr('actively relaying') + '</span>';
     }
     if (n.relay_count_1h != null || n.relay_count_24h != null) {
       const count = raw => { const v = nodeMetricNumber(raw); return Number.isSafeInteger(v) ? v : '—'; };
-      value += ` <span style="color:var(--text-muted);font-size:11px;margin-left:4px">(${count(n.relay_count_1h)} relays/hr, ${count(n.relay_count_24h)} relays/24h)</span>`;
+      value += ` <span style="color:var(--text-muted);font-size:11px;margin-left:4px">(${tr('{hour} relays/hr, {day} relays/24h', { hour: count(n.relay_count_1h), day: count(n.relay_count_24h) })})</span>`;
     }
-    return renderNodeMetric('Last Relayed', value, table, "Last time this node was attributed as a relay hop in a non-advert packet observed by the network. This includes 1-byte hops shared with other repeaters, so it does not decide Active/Stale: 'Last Heard' counts only packets that can be this node alone. The green actively relaying mark requires recent certain relay evidence, including forwarding another node's advert. No mark does not imply idle or offline.");
+    return renderNodeMetric(tr('Last Relayed'), value, table, tr("Last time this node was attributed as a relay hop in a non-advert packet observed by the network. This includes 1-byte hops shared with other repeaters, so it does not decide Active/Stale: 'Last Heard' counts only packets that can be this node alone. The green actively relaying mark requires recent certain relay evidence, including forwarding another node's advert. No mark does not imply idle or offline."));
   }
 
   function renderTrafficShare(n, table) {
@@ -231,16 +231,16 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
     if (s === null || s > 1) return '';
     const pct = (s * 100).toFixed(1);
     let label, color;
-    if (s >= 0.8) { label = 'Critical'; color = 'var(--status-green)'; }
-    else if (s >= 0.6) { label = 'Valuable'; color = 'var(--status-green)'; }
-    else if (s >= 0.3) { label = 'Moderate'; color = 'var(--status-yellow)'; }
-    else if (s >= 0.1) { label = 'Marginal'; color = 'var(--status-orange)'; }
-    else { label = 'Redundant'; color = 'var(--status-red)'; }
+    if (s >= 0.8) { label = tr('Critical'); color = 'var(--status-green)'; }
+    else if (s >= 0.6) { label = tr('Valuable'); color = 'var(--status-green)'; }
+    else if (s >= 0.3) { label = tr('Moderate'); color = 'var(--status-yellow)'; }
+    else if (s >= 0.1) { label = tr('Marginal'); color = 'var(--status-orange)'; }
+    else { label = tr('Redundant'); color = 'var(--status-red)'; }
     const barWidth = Math.max(2, Math.round(s * 100));
-    const tooltip = "Fraction of all non-advert mesh traffic in the analyzer's memory that transited through this repeater as a relay hop. High = lots of packets pass through; low = quieter (may still be structurally important — see Bridge score).";
+    const tooltip = tr("Fraction of all non-advert mesh traffic in the analyzer's memory that transited through this repeater as a relay hop. High = lots of packets pass through; low = quieter (may still be structurally important — see Bridge score).");
     const attributes = (table ? 'id="row-usefulness-score" ' : '') + `data-usefulness-score="${s.toFixed(4)}" data-traffic-share-score="${s.toFixed(4)}"`;
     const value = `<span style="display:inline-block;vertical-align:middle;width:80px;height:8px;background:var(--bg-secondary);border-radius:4px;overflow:hidden;margin-right:6px"><span style="display:block;width:${barWidth}%;height:100%;background:${color}"></span></span><span style="color:${color};font-weight:600">${pct}%</span> <span style="color:var(--text-muted);font-size:11px;margin-left:4px">${label}</span>`;
-    return renderNodeMetric('Traffic share <span style="color:var(--text-muted);cursor:help" aria-label="help">ⓘ</span>', value, table, tooltip, attributes);
+    return renderNodeMetric(tr('Traffic share') + ' <span style="color:var(--text-muted);cursor:help" aria-label="' + tr('help') + '">ⓘ</span>', value, table, tooltip, attributes);
   }
 
   function renderHashPrefix(n, table) {
@@ -248,12 +248,12 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
     const size = nodeMetricNumber(n.hash_size);
     let value = Number.isSafeInteger(size) && size > 0 && size * 2 <= key.length
       ? '<code style="font-family:var(--mono);font-weight:700">' + escapeHtml(key.slice(0, size * 2).toUpperCase()) + '</code> (' + size + '-byte)'
-      : 'Unknown';
+      : tr('Unknown');
     if (n.hash_size_inconsistent) {
       const sizes = Array.isArray(n.hash_sizes_seen) ? n.hash_sizes_seen : [];
-      value += ' <span style="color:var(--status-yellow);cursor:help" title="Seen: ' + escapeHtml(sizes.join(', ')) + '-byte"><svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-warning"/></svg>varies</span>';
+      value += ' <span style="color:var(--status-yellow);cursor:help" title="' + escapeHtml(tr('Seen: {sizes}-byte', { sizes: sizes.join(', ') })) + '"><svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-warning"/></svg>' + tr('varies') + '</span>';
     }
-    return renderNodeMetric('Hash Prefix', value, table);
+    return renderNodeMetric(tr('Hash Prefix'), value, table);
   }
 
   function renderNodeQuickActions(n) {
@@ -264,9 +264,9 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
     const viewport = numeric(n.lat) && numeric(n.lon)
       ? parseViewportHash('lat=' + Number(n.lat) + '&lon=' + Number(n.lon) + '&zoom=14') : null;
     const mapLink = viewport
-      ? '<a class="btn-primary" href="' + escapeHtml('#/map?' + nodeQuery + '&lat=' + viewport.lat + '&lon=' + viewport.lon + '&zoom=' + viewport.zoom) + '"><svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-map-trifold"/></svg> Open in Map</a>' : '';
+      ? '<a class="btn-primary" href="' + escapeHtml('#/map?' + nodeQuery + '&lat=' + viewport.lat + '&lon=' + viewport.lon + '&zoom=' + viewport.zoom) + '"><svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-map-trifold"/></svg> ' + tr('Open in Map') + '</a>' : '';
     return '<div class="node-quick-actions">' + mapLink +
-      '<a class="btn-primary" href="' + escapeHtml('#/packets?' + nodeQuery) + '"><svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-package"/></svg> View packets</a></div>';
+      '<a class="btn-primary" href="' + escapeHtml('#/packets?' + nodeQuery) + '"><svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-package"/></svg> ' + tr('View packets') + '</a></div>';
   }
 
   function getStatusTooltip(role, status) {
@@ -858,8 +858,8 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
         </div>
 
         <table class="node-stats-table" id="node-stats">
-          <tr><td>Status</td><td><span title="${si.statusTooltip}">${statusLabel}</span> <span style="font-size:11px;color:var(--text-muted);margin-left:4px">${statusExplanation}</span></td></tr>
-          <tr><td>Last Heard</td><td>${renderNodeTimestampHtml(lastHeard || n.last_seen)}</td></tr>
+          <tr><td>${tr('Status')}</td><td><span title="${si.statusTooltip}">${statusLabel}</span> <span style="font-size:11px;color:var(--text-muted);margin-left:4px">${statusExplanation}</span></td></tr>
+          <tr><td>${tr('Last Heard')}</td><td>${renderNodeTimestampHtml(lastHeard || n.last_seen)}</td></tr>
           ${renderLastRelayed(n, true)}
           ${renderTrafficShare(n, true)}
           ${(n.role === 'repeater' || n.role === 'room') && n.bridge_score != null ? (() => {
@@ -2010,7 +2010,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
             ${group.adverts.length ? group.adverts.map(a => {
               let decoded;
               try { decoded = JSON.parse(a.decoded_json); } catch {}
-              const pType = window.PayloadLabels.api.shortById(a.payload_type) || 'Packet';
+              const pType = window.PayloadLabels.api.shortById(a.payload_type) || tr('Packet');
               const icon = a.payload_type === 4 ? '<svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-broadcast"/></svg>' : a.payload_type === 5 ? '<svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-chat-circle"/></svg>' : a.payload_type === 2 ? '<svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-envelope"/></svg>' : '<svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-package"/></svg>';
               const detail = decoded?.text ? ': ' + escapeHtml(truncate(decoded.text, 50)) : decoded?.name ? ' — ' + escapeHtml(decoded.name) : '';
               const obs = a.observer_name || a.observer_id;

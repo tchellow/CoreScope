@@ -22,17 +22,17 @@ window.ObserverDetailRadioHistory = {
     };
     var rows = history.slice().reverse().map(function (h) {
       return '<tr><td style="' + cell + '">' + radioText(h.radio) + '</td>' +
-        '<td style="' + cell + '">' + (h.radio_id ? escapeHtml(h.radio_id) : '<span class="text-muted">main</span>') + '</td>' +
+        '<td style="' + cell + '">' + (h.radio_id ? escapeHtml(h.radio_id) : '<span class="text-muted">' + tr('main') + '</span>') + '</td>' +
         '<td style="' + cell + '">' + when(h.first_seen) + '</td>' +
         '<td style="' + cell + '">' + when(h.last_seen) + '</td></tr>';
     }).join('');
     return '<div class="node-full-card" data-testid="observer-radio-history" style="margin-bottom:20px;padding:12px">' +
-      '<h4 style="margin:0 0 6px">Radio history</h4>' +
+      '<h4 style="margin:0 0 6px">' + tr('Radio history') + '</h4>' +
       '<table style="border-collapse:collapse;font-size:0.85em"><thead><tr>' +
-      '<th style="' + cell + ';text-align:left">Setting</th><th style="' + cell + ';text-align:left">Radio</th>' +
-      '<th style="' + cell + ';text-align:left">From</th><th style="' + cell + ';text-align:left">Last reported</th>' +
+      '<th style="' + cell + ';text-align:left">' + tr('Setting') + '</th><th style="' + cell + ';text-align:left">' + tr('Radio') + '</th>' +
+      '<th style="' + cell + ';text-align:left">' + tr('From') + '</th><th style="' + cell + ';text-align:left">' + tr('Last reported') + '</th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table>' +
-      '<div class="text-muted" style="font-size:12px;margin-top:6px">Packets carry the setting the observer was on when it heard them.</div>' +
+      '<div class="text-muted" style="font-size:12px;margin-top:6px">' + tr('Packets carry the setting the observer was on when it heard them.') + '</div>' +
       '</div>';
   },
 };
@@ -201,7 +201,7 @@ window.ObserverDetailNaiveBanner = {
         } catch (error) {
           destroyCharts();
           el.innerHTML = '<div class="text-muted" role="status"></div>';
-          el.firstChild.textContent = 'Error: ' + error.message;
+          el.firstChild.textContent = tr('Error: {message}', { message: error.message });
         }
         el.setAttribute('aria-busy', 'false');
       });
@@ -332,11 +332,11 @@ window.ObserverDetailNaiveBanner = {
           <div class="stat-value" style="font-size:0.85em">${obs.last_seen ? timeAgo(obs.last_seen) + '<br><span style="font-size:0.8em;color:var(--text-muted)">' + new Date(obs.last_seen).toLocaleString() + '</span>' : '—'}</div>
         </div>
         <div class="stat-card" data-testid="obs-stat-neighbors-report">
-          <div class="stat-label">Neighbors Report</div>
-          <div class="stat-value" style="font-size:0.85em">${obs.neighbors_report_at && window.ObserverNeighbors ? window.ObserverNeighbors.since(obs.neighbors_report_at, Date.now()) : '<span style="color:var(--text-muted)">never</span>'}</div>
+          <div class="stat-label">${tr('Neighbors Report')}</div>
+          <div class="stat-value" style="font-size:0.85em">${obs.neighbors_report_at && window.ObserverNeighbors ? window.ObserverNeighbors.since(obs.neighbors_report_at, Date.now()) : '<span style="color:var(--text-muted)">' + tr('never') + '</span>'}</div>
         </div>
         <div class="stat-card" data-testid="obs-stat-neighbors-count">
-          <div class="stat-label">Neighbors</div>
+          <div class="stat-label">${tr('Neighbors')}</div>
           <div class="stat-value">${obs.neighbors_count != null && isFinite(Number(obs.neighbors_count)) ? Number(obs.neighbors_count) : '—'}</div>
         </div>
         <div class="stat-card">
@@ -347,10 +347,10 @@ window.ObserverDetailNaiveBanner = {
       <div class="mono" style="font-size:0.75em;color:var(--text-muted);margin-bottom:20px;word-break:break-all">
         ID: ${escapeHtml(obs.id)}
       </div>
-      <div id="obsClockOffset" aria-busy="true"><div class="text-muted" role="status" style="margin-bottom:20px">Loading clock calibration…</div></div>
+      <div id="obsClockOffset" aria-busy="true"><div class="text-muted" role="status" style="margin-bottom:20px">${tr('Loading clock calibration…')}</div></div>
       ${window.ObserverDetailRadioHistory ? window.ObserverDetailRadioHistory.render(obs.radio_history) : ''}
       ${window.ObserverNeighbors ? window.ObserverNeighbors.detailHtml(obs.neighbor_report) : ''}
-      <div id="obsAnalytics" aria-busy="true"><div class="text-muted" role="status">Loading analytics…</div></div>`;
+      <div id="obsAnalytics" aria-busy="true"><div class="text-muted" role="status">${tr('Loading analytics…')}</div></div>`;
   }
 
   function renderClockOffset(obsSkew) {
@@ -383,7 +383,7 @@ window.ObserverDetailNaiveBanner = {
         </div>
         <div class="chart-card" style="padding:12px">
           <h3 style="margin:0 0 8px;font-size:0.95em">${tr('Packet Types')}</h3>
-          <div style="max-width:280px;aspect-ratio:1;margin:0 auto"><canvas id="obsTypeChart" role="img" aria-label="Packet types chart"></canvas></div>
+          <div style="max-width:280px;aspect-ratio:1;margin:0 auto"><canvas id="obsTypeChart" role="img" aria-label="${tr('Packet types chart')}"></canvas></div>
         </div>
         <div class="chart-card" style="padding:12px">
           <h3 style="margin:0 0 8px;font-size:0.95em">${tr('Unique Nodes Heard')}</h3>

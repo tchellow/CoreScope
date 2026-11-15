@@ -131,7 +131,7 @@
     enumNameById: function (id) { return FW_PAYLOAD_TYPES[id]; },
     // Short label for display; ids the firmware does not define read
     // "Type N" so an unexpected byte stays visible instead of vanishing.
-    displayName: function (id) { return SHORT_BY_ID[id] || ('Type ' + id); }
+    displayName: function (id) { return SHORT_BY_ID[id] || (globalThis.tr ? globalThis.tr('Type {type}', { type: id }) : 'Type ' + id); }
   };
   var ns = {
     enums: PAYLOAD_LABELS,

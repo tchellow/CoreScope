@@ -230,7 +230,7 @@
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       _currentTab = btn.dataset.tab;
-      if (window.setPageTitle) window.setPageTitle('Analytics | ' + btn.textContent.trim());
+      if (window.setPageTitle) window.setPageTitle(tr('Analytics') + ' | ' + btn.textContent.trim());
       setAreaFilterVisibility(_currentTab);
       // #1085 — Roles tab owns its own 60s auto-refresh; stop it on switch.
       if (_currentTab !== 'roles') _stopRolesRefresh();
@@ -252,7 +252,7 @@
         _currentTab = urlTab;
       }
     }
-    if (window.setPageTitle) window.setPageTitle('Analytics | ' + analyticsTabs.querySelector('.tab-btn.active').textContent.trim());
+    if (window.setPageTitle) window.setPageTitle(tr('Analytics') + ' | ' + analyticsTabs.querySelector('.tab-btn.active').textContent.trim());
     // #749 — restore time window from URL.
     const urlWindow = _ap.get('window');
     if (urlWindow) {
