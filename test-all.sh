@@ -6,6 +6,7 @@ set -e
 cd "$(dirname "$0")"
 
 node tests/unit/test-test-inventory.js
+node tests/unit/test-manage-workflow.js
 node tests/unit/test-1108-region-hide-nodes.js
 node tests/unit/test-1659-analytics-warmup.js
 node tests/unit/test-a11y-1705-subpath-hop-prefix-e2e.js
@@ -47,6 +48,7 @@ node tests/unit/test-compare-overlap.js
 node tests/unit/test-confidence-indicator.js
 node tests/unit/test-coverage-gate.js
 node tests/unit/test-customizer-v2.js
+node tests/unit/test-dockerfile-buildplatform.js
 node tests/unit/test-drag-manager.js
 node tests/unit/test-e2e-coverage.js
 node tests/unit/test-direct-rf-heard-by.js
@@ -83,6 +85,7 @@ node tests/unit/test-issue-1412-customizer-no-override.js
 node tests/unit/test-issue-1415-packets-layout.js
 node tests/unit/test-issue-1418-cb-preset-ramp.js
 node tests/unit/test-issue-1418-deeplink-hops-channels.js
+node tests/unit/test-map-deeplink-path-params.js
 node tests/unit/test-issue-1418-edge-weights.js
 node tests/unit/test-issue-1418-polish-review.js
 node tests/unit/test-issue-1418-raw-hex-extraction.js
@@ -144,6 +147,7 @@ node tests/unit/test-issue-1836-crossnav-case-normalization.js
 node tests/unit/test-issue-1843-node-qr-quiet-zone.js
 node tests/unit/test-issue-1846-observers-width.js
 node tests/unit/test-issue-1849-trace-hashbytes.js
+node tests/unit/test-hb-column-header-route.js
 node tests/unit/test-issue-1851-channel-message-scope.js
 node tests/unit/test-issue-1862-map-region-filter.js
 node tests/unit/test-issue-1868-control-decode.js
@@ -182,10 +186,12 @@ node tests/unit/test-node-reach-coverage.js
 node tests/unit/test-nodes-export-wiring.js
 node tests/unit/test-nav-drawer-version-footer.js
 node tests/unit/test-nodes-export.js
+node tests/unit/test-node-quick-actions.js
 node tests/unit/test-notifications-ui.js
 node tests/unit/test-observer-iata-1188.js
 node tests/unit/test-observer-menu-interactions.js
 node tests/unit/test-observer-naive-clock-1478.js
+node tests/unit/test-observer-detail-ownership.js
 node tests/unit/test-observer-search-filter.js
 node tests/unit/test-observers-headings.js
 node tests/unit/test-packet-filter-time.js
@@ -198,6 +204,7 @@ node tests/unit/test-panel-corner.js
 node tests/unit/test-path-inspector.js
 node tests/unit/test-payload-labels-content.js
 node tests/unit/test-payload-labels-namespace.js
+node tests/unit/test-payload-labels-surfaces.js
 node tests/unit/test-perf-anomaly.js
 node tests/unit/test-perf-disk-io-1120.js
 node tests/unit/test-perf-go-runtime.js
@@ -214,6 +221,7 @@ node tests/unit/test-rx-coverage-mine.js
 node tests/unit/test-rx-coverage-escape.js
 node tests/unit/test-rx-coverage-noise.js
 node tests/unit/test-rx-coverage-viewport.js
+node tests/unit/test-rx-coverage-app-qr.js
 node tests/unit/test-scope-audit-styles-linked.js
 node tests/unit/test-settings-sync.js
 node tests/unit/test-slideover-1056-rowsel-strict.js
@@ -221,6 +229,8 @@ node tests/unit/test-top-routes-overlay.js
 node tests/unit/test-traces.js
 node tests/unit/test-url-state.js
 node tests/unit/test-user-management-ui.js
+node tests/unit/test-vendored-libs.js
+node tests/unit/test-observer-neighbors.js
 node tests/unit/test-warmup-banner.js
 node tests/unit/test-ws-stale-watchdog-1074.js
 node tests/unit/test-xss-escape-sinks.js

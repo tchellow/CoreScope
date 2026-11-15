@@ -6,7 +6,6 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
 
 (function () {
   let nodes = [];
-  const PAYLOAD_TYPES = {0:'Request',1:'Response',2:'Direct Msg',3:'ACK',4:'Advert',5:'Channel Msg',7:'Anon Req',8:'Path',9:'Trace'};
 
   function syncClaimedToFavorites() {
     const myNodes = JSON.parse(localStorage.getItem('meshcore-my-nodes') || '[]');
@@ -177,14 +176,10 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
   }
 
   function renderNodeTimestampHtml(isoString) {
-    if (typeof formatTimestampWithTooltip !== 'function' || typeof getTimestampMode !== 'function') {
+    if (typeof renderTimestampHtml !== 'function') {
       return escapeHtml(typeof timeAgo === 'function' ? timeAgo(isoString) : '—');
     }
-    const f = formatTimestampWithTooltip(isoString, getTimestampMode());
-    const warn = f.isFuture
-      ? ' <span class="timestamp-future-icon" title="' + tr('Timestamp is in the future — node clock may be skewed') + '"><svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-warning"/></svg></span>'
-      : '';
-    return `<span class="timestamp-text" title="${escapeHtml(f.tooltip)}">${escapeHtml(f.text)}</span>${warn}`;
+    return renderTimestampHtml(isoString);
   }
 
   function renderNodeTimestampText(isoString) {
@@ -195,6 +190,84 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
   }
 
   /* === Shared helper functions for node detail rendering === */
+
+  function renderNodeMetric(label, value, table, title = '', attributes = '') {
+    const tip = title ? ' title="' + escapeHtml(title) + '"' : '';
+    return table
+      ? `<tr ${attributes}><td${tip}>${label}</td><td>${value}</td></tr>`
+      : `<dt${tip}>${label}</dt><dd ${attributes}>${value}</dd>`;
+  }
+
+  function nodeMetricNumber(raw) {
+    if (typeof raw !== 'number' && (typeof raw !== 'string' || !raw.trim())) return null;
+    const value = Number(raw);
+    return Number.isFinite(value) && value >= 0 ? value : null;
+  }
+
+  function renderLastRelayed(n, table) {
+    if (n.role !== 'repeater' && n.role !== 'room') return '';
+    const hasRelay = n.last_relayed && Number.isFinite(new Date(n.last_relayed).getTime());
+    const certainMs = typeof n.last_certain_relay === 'string' ? Date.parse(n.last_certain_relay) : NaN;
+    const hasCertainRelay = Number.isFinite(certainMs);
+    const certainAge = Date.now() - certainMs;
+    let value = hasRelay
+      ? renderNodeTimestampHtml(n.last_relayed) + ' <span style="color:var(--text-muted);font-size:11px">attributed relay observation</span>'
+      : '<span style="color:var(--text-muted)">' + (hasCertainRelay ? 'no attributed non-advert relay' : 'never observed as relay hop') + '</span>';
+    if (hasCertainRelay && certainAge >= 0 && certainAge < HEALTH_THRESHOLDS.relayActiveMs) {
+      value += ' <span data-certain-relay-active style="color:var(--status-green-text);font-size:11px">actively relaying</span>';
+    }
+    if (n.relay_count_1h != null || n.relay_count_24h != null) {
+      const count = raw => { const v = nodeMetricNumber(raw); return Number.isSafeInteger(v) ? v : '—'; };
+      value += ` <span style="color:var(--text-muted);font-size:11px;margin-left:4px">(${count(n.relay_count_1h)} relays/hr, ${count(n.relay_count_24h)} relays/24h)</span>`;
+    }
+    return renderNodeMetric('Last Relayed', value, table, "Last time this node was attributed as a relay hop in a non-advert packet observed by the network. This includes 1-byte hops shared with other repeaters, so it does not decide Active/Stale: 'Last Heard' counts only packets that can be this node alone. The green actively relaying mark requires recent certain relay evidence, including forwarding another node's advert. No mark does not imply idle or offline.");
+  }
+
+  function renderTrafficShare(n, table) {
+    if (n.role !== 'repeater' && n.role !== 'room') return '';
+    // Older servers expose only usefulness_score; a measured zero is present.
+    const raw = n.traffic_share_score != null ? n.traffic_share_score : n.usefulness_score;
+    const s = nodeMetricNumber(raw);
+    if (s === null || s > 1) return '';
+    const pct = (s * 100).toFixed(1);
+    let label, color;
+    if (s >= 0.8) { label = 'Critical'; color = 'var(--status-green)'; }
+    else if (s >= 0.6) { label = 'Valuable'; color = 'var(--status-green)'; }
+    else if (s >= 0.3) { label = 'Moderate'; color = 'var(--status-yellow)'; }
+    else if (s >= 0.1) { label = 'Marginal'; color = 'var(--status-orange)'; }
+    else { label = 'Redundant'; color = 'var(--status-red)'; }
+    const barWidth = Math.max(2, Math.round(s * 100));
+    const tooltip = "Fraction of all non-advert mesh traffic in the analyzer's memory that transited through this repeater as a relay hop. High = lots of packets pass through; low = quieter (may still be structurally important — see Bridge score).";
+    const attributes = (table ? 'id="row-usefulness-score" ' : '') + `data-usefulness-score="${s.toFixed(4)}" data-traffic-share-score="${s.toFixed(4)}"`;
+    const value = `<span style="display:inline-block;vertical-align:middle;width:80px;height:8px;background:var(--bg-secondary);border-radius:4px;overflow:hidden;margin-right:6px"><span style="display:block;width:${barWidth}%;height:100%;background:${color}"></span></span><span style="color:${color};font-weight:600">${pct}%</span> <span style="color:var(--text-muted);font-size:11px;margin-left:4px">${label}</span>`;
+    return renderNodeMetric('Traffic share <span style="color:var(--text-muted);cursor:help" aria-label="help">ⓘ</span>', value, table, tooltip, attributes);
+  }
+
+  function renderHashPrefix(n, table) {
+    const key = String(n.public_key || '');
+    const size = nodeMetricNumber(n.hash_size);
+    let value = Number.isSafeInteger(size) && size > 0 && size * 2 <= key.length
+      ? '<code style="font-family:var(--mono);font-weight:700">' + escapeHtml(key.slice(0, size * 2).toUpperCase()) + '</code> (' + size + '-byte)'
+      : 'Unknown';
+    if (n.hash_size_inconsistent) {
+      const sizes = Array.isArray(n.hash_sizes_seen) ? n.hash_sizes_seen : [];
+      value += ' <span style="color:var(--status-yellow);cursor:help" title="Seen: ' + escapeHtml(sizes.join(', ')) + '-byte"><svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-warning"/></svg>varies</span>';
+    }
+    return renderNodeMetric('Hash Prefix', value, table);
+  }
+
+  function renderNodeQuickActions(n) {
+    const nodeQuery = 'node=' + encodeURIComponent(n.public_key);
+    // Reject blanks/coercible non-numbers before the shared viewport parser
+    // validates the ranges. Zero coordinates are valid navigation targets.
+    const numeric = value => typeof value === 'number' || (typeof value === 'string' && value.trim() !== '');
+    const viewport = numeric(n.lat) && numeric(n.lon)
+      ? parseViewportHash('lat=' + Number(n.lat) + '&lon=' + Number(n.lon) + '&zoom=14') : null;
+    const mapLink = viewport
+      ? '<a class="btn-primary" href="' + escapeHtml('#/map?' + nodeQuery + '&lat=' + viewport.lat + '&lon=' + viewport.lon + '&zoom=' + viewport.zoom) + '"><svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-map-trifold"/></svg> Open in Map</a>' : '';
+    return '<div class="node-quick-actions">' + mapLink +
+      '<a class="btn-primary" href="' + escapeHtml('#/packets?' + nodeQuery) + '"><svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-package"/></svg> View packets</a></div>';
+  }
 
   function getStatusTooltip(role, status) {
     const isInfra = role === 'repeater' || role === 'room';
@@ -293,7 +366,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
     if (!n.hash_size_inconsistent) return '';
     const sizes = Array.isArray(n.hash_sizes_seen) ? n.hash_sizes_seen : [];
     return `<div style="font-size:11px;color:var(--text-muted);margin:-2px 0 6px;padding:6px 10px;background:var(--surface-2);border-radius:4px;border-left:3px solid var(--status-yellow)">${tr('Adverts show varying hash sizes ({sizes}). This is a {bug} where automatic adverts ignore the configured multibyte path setting. Fixed in {release}.', {
-      sizes: '<strong>' + sizes.join('-byte, ') + '-byte</strong>',
+      sizes: '<strong>' + escapeHtml(sizes.join('-byte, ')) + '-byte</strong>',
       bug: '<a href="https://github.com/meshcore-dev/MeshCore/commit/fcfdc5f" target="_blank" style="color:var(--link-color)">' + tr('known bug') + '</a>',
       release: '<a href="https://github.com/meshcore-dev/MeshCore/releases/tag/repeater-v1.14.1" target="_blank" style="color:var(--link-color)">repeater v1.14.1</a>' })}</div>`;
   }
@@ -509,6 +582,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
   let packetCountHelpCleanup = null;
 
   function init(app, routeParam) {
+    if (window.setRouteTitle) window.setRouteTitle('nodes', routeParam);
     directNode = routeParam || null;
     packetCountHelpCleanup = setupPacketCountHelp(app);
 
@@ -769,6 +843,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
             <button class="btn-primary" id="copyShortUrlBtn" title="${tr('Short URL using an 8-char pubkey prefix — easier to send over the mesh (issue #772)')}" style="flex:0 0 auto;font-size:12px;padding:4px 10px"><svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-broadcast"/></svg> ${tr('Copy short URL')}</button>
             <a href="#/nodes/${encodeURIComponent(n.public_key)}/analytics" class="btn-primary" style="flex:0 0 auto;text-decoration:none;font-size:12px;padding:4px 10px"><svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-chart-bar"/></svg> ${tr('Analytics')}</a>
             <a href="#/nodes/${encodeURIComponent(n.public_key)}/reach" class="btn-primary" style="flex:0 0 auto;text-decoration:none;font-size:12px;padding:4px 10px"><svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-broadcast"/></svg> ${tr('Reach')}</a>
+            ${renderNodeQuickActions(n)}
             <a href="#/observers/${encodeURIComponent(n.public_key.toUpperCase())}" class="btn-primary" title="${tr('View this pubkey as an observer')}" style="flex:0 0 auto;text-decoration:none;font-size:12px;padding:4px 10px"><svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-eye"/></svg> ${tr('Observer')} →</a>
             <span class="node-notify-slot" id="nodeNotifySlotFull"></span>
           </div>
@@ -783,31 +858,10 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
         </div>
 
         <table class="node-stats-table" id="node-stats">
-          <tr><td>${tr('Status')}</td><td><span title="${si.statusTooltip}">${statusLabel}</span> <span style="font-size:11px;color:var(--text-muted);margin-left:4px">${statusExplanation}</span></td></tr>
-          <tr><td>${tr('Last Heard')}</td><td>${renderNodeTimestampHtml(lastHeard || n.last_seen)}</td></tr>
-          ${(n.role === 'repeater' || n.role === 'room') ? `<tr><td title="${tr('Last time this repeater appeared as a relay hop in a non-advert packet observed by the network (#662). This includes 1-byte hops shared with other repeaters, so it does not decide Active/Stale: \'Last Heard\' counts only packets that can be this node alone (#2260).')}">${tr('Last Relayed')}</td><td>${n.last_relayed ? renderNodeTimestampHtml(n.last_relayed) + ' ' + (n.relay_active ? '<span style="color:var(--status-green-text);font-size:11px"><span style="color:var(--status-green-text)"><svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-circle-fill"/></svg></span> ' + tr('actively relaying') + '</span>' : '<span style="color:var(--status-yellow);font-size:11px"><span style="color:var(--status-yellow)"><svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-circle-fill"/></svg></span> ' + tr('alive (idle)') + '</span>') : '<span style="color:var(--text-muted)">' + tr('never observed as relay hop') + '</span> <span style="color:var(--status-yellow);font-size:11px"><span style="color:var(--status-yellow)"><svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-circle-fill"/></svg></span> ' + tr('alive (idle)') + '</span>'}${(n.relay_count_1h != null || n.relay_count_24h != null) ? ` <span style="color:var(--text-muted);font-size:11px;margin-left:4px">(${tr('{hour} relays/hr, {day} relays/24h', { hour: n.relay_count_1h || 0, day: n.relay_count_24h || 0 })})</span>` : ''}</td></tr>` : ''}
-          ${(n.role === 'repeater' || n.role === 'room') && (n.traffic_share_score != null || n.usefulness_score != null) ? (() => {
-            // #1456: prefer the new traffic_share_score field; fall back
-            // to legacy usefulness_score for graceful degradation
-            // against stale servers. The visible label is now "Traffic
-            // share" (the old "Usefulness" implied a composite that
-            // doesn't exist yet — see #672).
-            const raw = (n.traffic_share_score != null) ? n.traffic_share_score : n.usefulness_score;
-            const s = Number(raw) || 0;
-            const pct = (s * 100).toFixed(1);
-            // Visual indicator: width % bar with green→yellow→red color by score.
-            // Per issue #672 classification table: 0.8+ Critical, 0.6+ Valuable,
-            // 0.3+ Moderate, 0.1+ Marginal, else Redundant.
-            let label, color;
-            if (s >= 0.8) { label = tr('Critical'); color = 'var(--status-green, #2ecc71)'; }
-            else if (s >= 0.6) { label = tr('Valuable'); color = 'var(--status-green, #2ecc71)'; }
-            else if (s >= 0.3) { label = tr('Moderate'); color = 'var(--status-yellow, #f1c40f)'; }
-            else if (s >= 0.1) { label = tr('Marginal'); color = 'var(--status-orange, #e67e22)'; }
-            else { label = tr('Redundant'); color = 'var(--status-red, #e74c3c)'; }
-            const barWidth = Math.max(2, Math.round(s * 100));
-            const tooltip = tr("Fraction of all non-advert mesh traffic in the analyzer's memory that transited through this repeater as a relay hop. High = lots of packets pass through; low = quieter (may still be structurally important — see Bridge score). One of 4 planned scoring axes (#672); others pending.");
-            return `<tr id="row-usefulness-score" data-usefulness-score="${s.toFixed(4)}" data-traffic-share-score="${s.toFixed(4)}"><td title="${tooltip}">${tr('Traffic share')} <span style="color:var(--text-muted);cursor:help" aria-label="${tr('help')}">ⓘ</span></td><td><span style="display:inline-block;vertical-align:middle;width:80px;height:8px;background:var(--bg-secondary,#333);border-radius:4px;overflow:hidden;margin-right:6px"><span style="display:block;width:${barWidth}%;height:100%;background:${color}"></span></span><span style="color:${color};font-weight:600">${pct}%</span> <span style="color:var(--text-muted);font-size:11px;margin-left:4px">${label}</span></td></tr>`;
-          })() : ''}
+          <tr><td>Status</td><td><span title="${si.statusTooltip}">${statusLabel}</span> <span style="font-size:11px;color:var(--text-muted);margin-left:4px">${statusExplanation}</span></td></tr>
+          <tr><td>Last Heard</td><td>${renderNodeTimestampHtml(lastHeard || n.last_seen)}</td></tr>
+          ${renderLastRelayed(n, true)}
+          ${renderTrafficShare(n, true)}
           ${(n.role === 'repeater' || n.role === 'room') && n.bridge_score != null ? (() => {
             // Bridge axis (issue #672 axis 2 of 4): normalized betweenness
             // centrality from the neighbor-edges graph. Distinct from the
@@ -833,7 +887,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
           <tr><td>${tr('Packets Today')}</td><td>${stats.packetsToday || 0}</td></tr>
           ${stats.avgHops ? `<tr><td>${tr('Avg Hops')}</td><td>${stats.avgHops}</td></tr>` : ''}
           ${hasLoc ? `<tr><td>${tr('Location')}</td><td>${Number(n.lat).toFixed(5)}, ${Number(n.lon).toFixed(5)}</td></tr>` : ''}
-          <tr><td>${tr('Hash Prefix')}</td><td>${n.hash_size ? '<code style="font-family:var(--mono);font-weight:700">' + n.public_key.slice(0, n.hash_size * 2).toUpperCase() + '</code> (' + n.hash_size + '-byte)' : tr('Unknown')}${n.hash_size_inconsistent ? ' <span style="color:var(--status-yellow);cursor:help" title="' + tr('Seen: {sizes}-byte', { sizes: (Array.isArray(n.hash_sizes_seen) ? n.hash_sizes_seen : []).join(', ') }) + '"><svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-warning"/></svg> ' + tr('varies') + '</span>' : ''}</td></tr>
+          ${renderHashPrefix(n, true)}
           ${rfOn() ? `<tr><td title="${tr('LoRa radio settings this node last advertised to the MeshCore map')}">LoRa</td><td data-testid="node-detail-lora">${RfParams.detailHtml(rfFor(n), _rfParams.presets, Date.now(), rfDev(n))}</td></tr>` : ''}
         </table>
 
@@ -1108,7 +1162,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
             }).join(' → ');
             return `<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
               <div>${chain}</div>
-              <div style="color:var(--text-muted);margin-top:2px">${p.count}× · ${tr('last {time}', { time: renderNodeTimestampHtml(p.lastSeen) })} · <a href="#/packets/${p.sampleHash}" class="ch-analyze-link">${tr('Analyze')} →</a></div>
+              <div style="color:var(--text-muted);margin-top:2px">${p.count}× · ${tr('last {time}', { time: renderNodeTimestampHtml(p.lastSeen) })} · <a href="#/packets/${p.sampleHash}" class="ch-analyze-link">${tr('View example packet')} →</a></div>
             </div>`;
           }).join('');
         }
@@ -1656,6 +1710,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
           panel.innerHTML = '<span>' + tr('Select a node to view details') + '</span>';
           selectedKey = null;
           history.replaceState(null, '', '#/nodes');
+          if (window.setRouteTitle) window.setRouteTitle('nodes');
           renderRows();
         }
       }
@@ -1683,6 +1738,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
         panel.innerHTML = '<span>' + tr('Select a node to view details') + '</span>';
         selectedKey = null;
         history.replaceState(null, '', '#/nodes');
+        if (window.setRouteTitle) window.setRouteTitle('nodes');
         renderRows();
       }
     });
@@ -1806,6 +1862,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
       location.hash = '#/nodes/' + encodeURIComponent(pubkey);
       return;
     }
+    if (window.setRouteTitle) window.setRouteTitle('nodes', pubkey);
     // #1056 AC#4: narrow desktop/tablet (641–1023) — open detail in slide-over.
     if (window.SlideOver && window.SlideOver.shouldUse()) {
       selectedKey = pubkey;
@@ -1821,8 +1878,12 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
             + '"]');
         },
         onClose: function () {
+          // Only closing this preview returns to the list; keep any new route.
+          if (selectedKey === pubkey && location.hash === '#/nodes/' + encodeURIComponent(pubkey)) {
+            history.replaceState(null, '', '#/nodes');
+            if (window.setRouteTitle) window.setRouteTitle('nodes');
+          }
           selectedKey = null;
-          history.replaceState(null, '', '#/nodes');
           renderRows();
         }
       });
@@ -1832,18 +1893,29 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
         if (selectedKey !== pubkey) return;
         const n = (data && data.node) || data || {};
         const titleEl = document.querySelector('.slide-over-title');
-        if (titleEl) titleEl.textContent = n.advert_name || (n.public_key ? n.public_key.slice(0, 10) : tr('Node'));
+        const name = n.name || n.advert_name;
+        if (titleEl) titleEl.textContent = name || (n.public_key ? n.public_key.slice(0, 10) : tr('Node'));
         var role = (n.role || '').toString();
         var lastHeard = n.last_heard || n.last_seen;
         so.innerHTML =
           '<dl style="margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:13px">' +
-            '<dt>' + tr('Name') + '</dt><dd>' + escapeHtml(n.advert_name || '—') + '</dd>' +
+            '<dt>' + tr('Name') + '</dt><dd>' + escapeHtml(name || '—') + '</dd>' +
             '<dt>' + tr('Role') + '</dt><dd>' + escapeHtml(role ? tr(role) : '—') + '</dd>' +
             '<dt>' + tr('Public key') + '</dt><dd class="mono" style="word-break:break-all">' + escapeHtml(n.public_key || '—') + '</dd>' +
-            '<dt>' + tr('Last heard') + '</dt><dd>' + (lastHeard ? timeAgo(lastHeard) : '—') + '</dd>' +
+            '<dt>' + tr('Last Heard') + '</dt><dd>' + renderNodeTimestampHtml(lastHeard) + '</dd>' +
+            renderLastRelayed(n) +
+            renderTrafficShare(n) +
             '<dt>' + tr('Adverts') + '</dt><dd>' + (n.advert_count != null ? n.advert_count : '—') + '</dd>' +
+            renderHashPrefix(n) +
           '</dl>' +
-          '<p style="margin-top:14px"><a class="btn-primary" href="#/nodes/' + encodeURIComponent(pubkey) + '">' + tr('Open full detail') + ' →</a></p>';
+          '<p class="node-quick-actions" style="margin:14px 0 6px"><a class="btn-primary node-detail-btn" href="#/nodes/' + encodeURIComponent(pubkey) + '">' + tr('Open full detail') + ' →</a></p>' +
+          renderNodeQuickActions(n);
+        so.querySelector('.node-detail-btn').addEventListener('click', function (e) {
+          if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+          e.preventDefault();
+          window.SlideOver.close();
+          navigateToNode(pubkey);
+        });
       } catch (e) {
         so.innerHTML = '<div class="text-muted">' + tr('Error: {message}', { message: escapeHtml(e && e.message ? e.message : String(e)) }) + '</div>';
       }
@@ -1901,6 +1973,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
           <a href="#/nodes/${encodeURIComponent(n.public_key)}/reach" class="btn-primary" style="display:inline-block;margin-left:4px;text-decoration:none;font-size:11px;padding:2px 8px"><svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-broadcast"/></svg> ${tr('Reach')}</a>
           <span class="node-notify-slot" id="nodeNotifySlot"></span>
         </div>
+        ${renderNodeQuickActions(n)}
         ${renderStatusExplanation(n)}
 
         ${hasLoc ? `<div class="node-map-qr-wrap">
@@ -1916,11 +1989,14 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
           <h4>${tr('Overview')}</h4>
           <dl class="detail-meta">
             <dt>${tr('Last Heard')}</dt><dd>${renderNodeTimestampHtml(lastHeard || n.last_seen)}</dd>
+            ${renderLastRelayed(n)}
+            ${renderTrafficShare(n)}
             <dt>${tr('First Seen')}</dt><dd>${renderNodeTimestampHtml(n.first_seen)}</dd>
             <dt>${renderPacketCountLabel('nodePacketCountHelp')}</dt><dd>${totalPackets}</dd>
             <dt>${tr('Packets Today')}</dt><dd>${stats.packetsToday || 0}</dd>
             ${stats.avgHops ? `<dt>${tr('Avg Hops')}</dt><dd>${stats.avgHops}</dd>` : ''}
             ${hasLoc ? `<dt>${tr('Location')}</dt><dd>${Number(n.lat).toFixed(5)}, ${Number(n.lon).toFixed(5)}</dd>` : ''}
+            ${renderHashPrefix(n)}
             ${rfOn() ? `<dt title="${tr('LoRa radio settings this node last advertised to the MeshCore map')}">LoRa</dt><dd data-testid="node-detail-lora">${RfParams.detailHtml(rfFor(n), _rfParams.presets, Date.now(), rfDev(n))}</dd>` : ''}
           </dl>
         </div>
@@ -1934,7 +2010,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
             ${group.adverts.length ? group.adverts.map(a => {
               let decoded;
               try { decoded = JSON.parse(a.decoded_json); } catch {}
-              const pType = PAYLOAD_TYPES[a.payload_type] || 'Packet';
+              const pType = window.PayloadLabels.api.shortById(a.payload_type) || 'Packet';
               const icon = a.payload_type === 4 ? '<svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-broadcast"/></svg>' : a.payload_type === 5 ? '<svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-chat-circle"/></svg>' : a.payload_type === 2 ? '<svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-envelope"/></svg>' : '<svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-package"/></svg>';
               const detail = decoded?.text ? ': ' + escapeHtml(truncate(decoded.text, 50)) : decoded?.name ? ' — ' + escapeHtml(decoded.name) : '';
               const obs = a.observer_name || a.observer_id;
@@ -2066,7 +2142,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
           }).join(' → ');
           return `<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
             <div>${chain}</div>
-            <div style="color:var(--text-muted);margin-top:2px">${p.count}× · ${tr('last {time}', { time: renderNodeTimestampHtml(p.lastSeen) })} · <a href="#/packets/${p.sampleHash}" class="ch-analyze-link">${tr('Analyze')} →</a></div>
+            <div style="color:var(--text-muted);margin-top:2px">${p.count}× · ${tr('last {time}', { time: renderNodeTimestampHtml(p.lastSeen) })} · <a href="#/packets/${p.sampleHash}" class="ch-analyze-link">${tr('View example packet')} →</a></div>
           </div>`;
         }).join('');
       }

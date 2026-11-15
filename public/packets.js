@@ -737,6 +737,9 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
   let selectedId = null;
   function _isColorByHash() { return localStorage.getItem('meshcore-color-packets-by-hash') !== 'false'; }
   function _currentTheme() { return document.documentElement.dataset.theme || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); }
+  // HB cell. Route type comes from this raw_hex's own header, not the transmission's
+  // route_type: the same packet can be heard as FLOOD and as TRANSPORT_FLOOD.
+  function hashBytesText(rawHex) { return pathHashSize(rawHex) || '—'; }
   function _hashStripeStyle(hash) { return _isColorByHash() && hash && window.HashColor ? 'border-left:4px solid ' + HashColor.hashToHsl(hash, _currentTheme()) + ';' : ''; }
   let groupByHash = true;
   let filters = {};
@@ -752,13 +755,19 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
   // already built (decouples observer fetch from row render).
   let _rebuildObserverMenu = null;
   let regionMap = {};
-  const TYPE_NAMES = SHORT_BY_ID;
-  function typeName(t) { return TYPE_NAMES[t] ?? `Type ${t}`; }
+  function typeName(t) { return window.PayloadLabels.api.displayName(t); }
   const isMobile = window.innerWidth <= 1024;
   const PACKET_LIMIT = isMobile ? 1000 : 50000;
-  let savedTimeWindowMin = Number(localStorage.getItem('meshcore-time-window'));
-  if (!Number.isFinite(savedTimeWindowMin) || savedTimeWindowMin <= 0) savedTimeWindowMin = 15;
-  if (isMobile && savedTimeWindowMin > 180) savedTimeWindowMin = 15;
+  const DEFAULT_TIME_WINDOW = 15;
+  function normalizeTimeWindow(value, fallback = DEFAULT_TIME_WINDOW) {
+    // Only an explicit zero means All time; absent/empty preferences do not.
+    if (value == null || String(value).trim() === '') return fallback;
+    const minutes = Number(value);
+    if (!Number.isFinite(minutes) || minutes < 0) return fallback;
+    if (isMobile && (minutes === 0 || minutes > 180)) return DEFAULT_TIME_WINDOW;
+    return minutes;
+  }
+  let savedTimeWindowMin = normalizeTimeWindow(localStorage.getItem('meshcore-time-window'));
   let totalCount = 0;
   let expandedHashes = new Set();
   let hopNameCache = {};
@@ -778,11 +787,9 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
   let _regionChangeHandler = null;
   let _areaChangeHandler = null;
 
-  var DEFAULT_TIME_WINDOW = 15;
-
   function buildPacketsQuery(timeWindowMin, regionParam, skipHash) {
     var parts = [];
-    if (timeWindowMin && timeWindowMin !== DEFAULT_TIME_WINDOW) parts.push('timeWindow=' + timeWindowMin);
+    if (timeWindowMin != null && timeWindowMin !== DEFAULT_TIME_WINDOW) parts.push('timeWindow=' + timeWindowMin);
     if (regionParam) parts.push('region=' + encodeURIComponent(regionParam));
     if (!skipHash && filters.hash) parts.push('hash=' + encodeURIComponent(filters.hash));
     if (filters.node) parts.push('node=' + encodeURIComponent(filters.node));
@@ -806,8 +813,11 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
     // Preserve any subpath after /packets (e.g. #/packets/<hash>).
     var cur = String(location.hash || '');
     var subpath = '';
-    var m = cur.match(/^#\/packets(\/[^?]*)?/);
-    if (m && m[1]) subpath = m[1];
+    // A response may render after the hash changes but before hashchange
+    // destroys this view. Its filters must not replace the requested route.
+    var m = cur.match(/^#\/packets(\/[^?]*)?(?:\?|$)/);
+    if (!m) return;
+    if (m[1]) subpath = m[1];
     // Don't double-encode filters.hash when it's already the path segment.
     var skipHash = !!(filters.hash && subpath === '/' + filters.hash);
     var query = buildPacketsQuery(savedTimeWindowMin, RegionFilter.getRegionParam(), skipHash);
@@ -908,6 +918,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
       var layout = panel.closest('.split-layout');
       if (layout) layout.classList.add('detail-collapsed');
       selectedId = null;
+      if (window.setRouteTitle) window.setRouteTitle('packets');
       renderTableRows();
     }
   }
@@ -1283,14 +1294,10 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
   if (typeof window !== 'undefined') window._packetsMatchesChannelForTest = packetMatchesChannel;
 
   function renderTimestampCell(isoString) {
-    if (typeof formatTimestampWithTooltip !== 'function' || typeof getTimestampMode !== 'function') {
+    if (typeof renderTimestampHtml !== 'function') {
       return escapeHtml(typeof timeAgo === 'function' ? timeAgo(isoString) : '—');
     }
-    const f = formatTimestampWithTooltip(isoString, getTimestampMode());
-    const warn = f.isFuture
-      ? ' <span class="timestamp-future-icon" title="' + tr('Timestamp is in the future — node clock may be skewed') + '"><svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-warning"/></svg></span>'
-      : '';
-    return `<span class="timestamp-text" title="${escapeHtml(f.tooltip)}">${escapeHtml(f.text)}</span>${warn}`;
+    return renderTimestampHtml(isoString);
   }
 
   async function init(app, routeParam) {
@@ -1338,10 +1345,9 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
     } else {
       showFullNames = localStorage.getItem('meshcore-full-names') === 'true';
     }
-    var _urlTimeWindow = Number(_initUrlParams.get('timeWindow'));
-    if (Number.isFinite(_urlTimeWindow) && _urlTimeWindow > 0) {
-      savedTimeWindowMin = _urlTimeWindow;
-      localStorage.setItem('meshcore-time-window', String(_urlTimeWindow));
+    if (_initUrlParams.has('timeWindow')) {
+      savedTimeWindowMin = normalizeTimeWindow(_initUrlParams.get('timeWindow'), savedTimeWindowMin);
+      localStorage.setItem('meshcore-time-window', String(savedTimeWindowMin));
     }
     var _urlHash = _initUrlParams.get('hash');
     if (_urlHash) filters.hash = _urlHash;
@@ -1557,6 +1563,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
                 payload_type: p.payload_type,
                 raw_hex: p.raw_hex,
                 decoded_json: p.decoded_json,
+                radio: p.radio, // #1869: the filter's radio/sf fields read it
               };
               packets.unshift(newGroup);
               if (h) hashIndex.set(h, newGroup);
@@ -1681,8 +1688,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
 
   async function loadPackets() {
     try {
-      const selectedWindow = Number(document.getElementById('fTimeWindow')?.value);
-      const windowMin = Number.isFinite(selectedWindow) ? selectedWindow : savedTimeWindowMin;
+      const windowMin = normalizeTimeWindow(document.getElementById('fTimeWindow')?.value, savedTimeWindowMin);
       const params = buildPacketsParams({
         filters,
         regionParam: RegionFilter.getRegionParam(),
@@ -1802,6 +1808,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
           <button class="btn-icon" data-action="pkt-byop" title="${tr('Bring Your Own Packet')}" aria-label="${tr('Bring Your Own Packet - paste raw packet hex for analysis')}" aria-haspopup="dialog"><svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-package"/></svg> BYOP</button>
         </div>
       </div>
+      <p id="packetObserverContext" class="text-muted" style="font-size:var(--fs-sm);margin-bottom:var(--space-md)">Packets shown are based on observer reports received by this instance. Counts reflect a partial view of network traffic, not network-wide totals or device firmware counters.</p>
       <div class="filter-group pkt-filter-expr" style="flex:1;margin-bottom:8px;position:relative">
         <input type="text" id="packetFilterInput" class="packet-filter-input"
           placeholder='${tr('Filter: {example}', { example: 'type == Advert && snr > 5 · payload.name contains "Gilroy"' })}'
@@ -1882,7 +1889,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
         </div>
       </div>
       <div class="path-symbols-legend-wrapper">${(window.HopDisplay && HopDisplay.renderPathSymbolsLegend) ? HopDisplay.renderPathSymbolsLegend() : ''}</div>
-      <div class="table-fluid-wrap"><table class="data-table${showFullNames ? ' pkt-full-names' : ''}" id="pktTable">
+      <div class="table-fluid-wrap"><table class="data-table${showFullNames ? ' pkt-full-names' : ''}" id="pktTable" aria-describedby="packetObserverContext">
         <thead><tr>
           <th scope="col" class="col-expand" data-priority="1"></th><th scope="col" class="col-region" data-sort-key="region" data-priority="3">${tr('Region')}</th><th scope="col" class="col-time" data-sort-key="time" data-type="date" data-priority="1">${tr('Time')}</th><th scope="col" class="col-hash" data-sort-key="hash" data-priority="3">Hash</th><th scope="col" class="col-size" data-sort-key="size" data-type="numeric" data-priority="4">${tr('Size')}</th>
           <th scope="col" class="col-hashsize" data-sort-key="hb" data-type="numeric" data-priority="5">HB</th>
@@ -2235,8 +2242,8 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
     const fTimeWindow = document.getElementById('fTimeWindow');
     fTimeWindow.value = String(savedTimeWindowMin);
     fTimeWindow.addEventListener('change', () => {
-      savedTimeWindowMin = Number(fTimeWindow.value);
-      if (!Number.isFinite(savedTimeWindowMin) || savedTimeWindowMin <= 0) savedTimeWindowMin = 15;
+      savedTimeWindowMin = normalizeTimeWindow(fTimeWindow.value);
+      fTimeWindow.value = String(savedTimeWindowMin);
       localStorage.setItem('meshcore-time-window', fTimeWindow.value);
       updatePacketsUrl();
       loadPackets();
@@ -2589,12 +2596,11 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
     const groupTypeName = payloadTypeName(p.payload_type);
     const groupTypeClass = payloadTypeColor(p.payload_type);
     const groupSize = p.raw_hex ? Math.floor(p.raw_hex.length / 2) : 0;
-    const _grpPlOff = getPathLenOffset(p.route_type);
     // #1849: TRACE (payload_type=9) header path bytes are per-hop SNR readings,
     // not truncated hop hashes (see internal/packetpath/route.go PathBytesAreHops).
     // The (>>6)+1 derivation is meaningless for TRACE — render — with a tooltip.
     const _grpIsTrace = p.payload_type === 9;
-    const groupHashBytes = _grpIsTrace ? '—' : (((parseInt(p.raw_hex?.slice(_grpPlOff * 2, _grpPlOff * 2 + 2), 16) || 0) >> 6) + 1);
+    const groupHashBytes = _grpIsTrace ? '—' : hashBytesText(p.raw_hex);
     const _grpHashSizeTitle = _grpIsTrace ? ' title="' + tr('TRACE path bytes are SNR readings, not hash prefixes — see sidebar decoder for actual hop count') + '"' : '';
     const isSingle = p.count <= 1;
     // Channel color highlighting (#271)
@@ -2626,13 +2632,12 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
         const typeClass = payloadTypeColor(c.payload_type);
         const size = c.raw_hex ? Math.floor(c.raw_hex.length / 2) : 0;
         const childPath = getParsedPath(c);
-        const _cPlOff = getPathLenOffset(p.route_type);
         // #1849: TRACE header path bytes are SNR readings, not hop hashes.
         const _cIsTrace = c.payload_type === 9;
         const childHashBytes = _cIsTrace
           ? '—'
           : (c.raw_hex
-            ? (((parseInt(c.raw_hex.slice(_cPlOff * 2, _cPlOff * 2 + 2), 16) || 0) >> 6) + 1)
+            ? hashBytesText(c.raw_hex)
             : (childPath.length > 0 ? childPath[0].length / 2 : 0));
         const _cHashSizeTitle = _cIsTrace ? ' title="' + tr('TRACE path bytes are SNR readings, not hash prefixes — see sidebar decoder for actual hop count') + '"' : '';
         const childRegion = c.observer_id ? (observerMap.get(c.observer_id)?.iata || '') : '';
@@ -2666,10 +2671,9 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
     // Channel color highlighting (#271)
     const _chanStyle = window.ChannelColors ? window.ChannelColors.getRowStyle(decoded.type || typeName, decoded.channel) : '';
     const size = p.raw_hex ? Math.floor(p.raw_hex.length / 2) : 0;
-    const _flatPlOff = getPathLenOffset(p.route_type);
     // #1849: TRACE path bytes = SNR readings, not hop hashes.
     const _flatIsTrace = p.payload_type === 9;
-    const hashBytes = _flatIsTrace ? '—' : (((parseInt(p.raw_hex?.slice(_flatPlOff * 2, _flatPlOff * 2 + 2), 16) || 0) >> 6) + 1);
+    const hashBytes = _flatIsTrace ? '—' : hashBytesText(p.raw_hex);
     const _flatHashSizeTitle = _flatIsTrace ? ' title="' + tr('TRACE path bytes are SNR readings, not hash prefixes — see sidebar decoder for actual hop count') + '"' : '';
     const pathStr = renderPath(pathHops, p.observer_id, { summary: true });
     const detail = getDetailPreview(decoded);
@@ -3488,6 +3492,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
   let selectedObservationId = null;
 
   async function selectPacket(id, hash, prefetchedData, obsRowId) {
+    if (window.setRouteTitle) window.setRouteTitle('packets', String(hash || id));
     selectedId = id;
     selectedObservationId = obsRowId || null;
     const obsParam = selectedObservationId ? `?obs=${selectedObservationId}` : '';
@@ -3496,6 +3501,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
     } else {
       history.replaceState(null, '', `#/packets/${id}${obsParam}`);
     }
+    updatePacketsUrl();
     renderTableRows();
     const isMobileNow = window.innerWidth <= 640;
     // #1168 review note: this branch is intentionally narrower than nodes.js /
@@ -3529,6 +3535,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
           selectedId = null;
           selectedObservationId = null;
           history.replaceState(null, '', '#/packets');
+          if (window.setRouteTitle) window.setRouteTitle('packets');
           renderTableRows();
         }
       });
@@ -3544,9 +3551,11 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
         document.body.appendChild(sheet);
         sheet.querySelector('#mobileSheetClose').addEventListener('click', () => {
           sheet.classList.remove('open');
+          if (window.setRouteTitle) window.setRouteTitle('packets');
         });
         sheet.querySelector('.mobile-sheet-handle').addEventListener('click', () => {
           sheet.classList.remove('open');
+          if (window.setRouteTitle) window.setRouteTitle('packets');
         });
       }
       panel = sheet.querySelector('.mobile-sheet-content');
@@ -3578,9 +3587,18 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
     }
   }
 
+  // #1869: escaped text of an observation's radio setting. rf-params.js
+  // formats it; should that script fail to load, the raw string is shown
+  // (escaped) instead of the detail panel throwing.
+  function radioSettingHtml(radio) {
+    return window.RfParams ? window.RfParams.radioText(radio) : escapeHtml(radio || '');
+  }
+
   async function renderDetail(panel, data, chosenObsId) {
     const pkt = data.packet;
     const observations = data.observations || [];
+    // #1869: the Radio column only earns its width when the server reports one.
+    const obsHaveRadio = observations.some(o => o.radio);
 
     // Per-observation rendering (issue #849):
     // When opened from a packet row (no specific observer), default to first observation.
@@ -3824,6 +3842,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
         <dt>${tr('Path')}</dt><dd>${displayHopCount > 0 ? `<span class="badge badge-info">${trn(displayHopCount, '{count} hop', '{count} hops')}</span> ` + '<span class="detail-path-hops">' + renderPath(pathHops, effectivePkt.observer_id, { entries: pathEntries }) + '</span>' : '— (' + tr('direct') + ')'}</dd>
         <dt>${tr('Timestamp')}</dt><dd>${renderTimestampCell(effectivePkt.timestamp)}</dd>
         <dt>${tr('Observer')}</dt><dd>${escapeHtml(obsNameOnly(effectivePkt.observer_id))}${obsIataBadge(effectivePkt)}</dd>
+        ${effectivePkt.radio ? `<dt>Radio</dt><dd data-testid="detail-radio" title="Radio setting the observer was on when it heard this packet">${radioSettingHtml(effectivePkt.radio)}</dd>` : ''}
         ${locationHtml ? `<dt>${tr('Location')}</dt><dd>${locationHtml}</dd>` : ''}
         <dt>SNR / RSSI</dt><dd>${snr != null ? snr + ' dB' : '—'} / ${rssi != null ? rssi + ' dBm' : '—'}</dd>
         <dt>${tr('Route Type')}</dt><dd>${routeTypeName(pkt.route_type)}</dd>
@@ -3858,6 +3877,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
             <th style="padding:4px 6px;text-align:left">${tr('Hops')}</th>
             <th style="padding:4px 6px;text-align:left">SNR</th>
             <th style="padding:4px 6px;text-align:left">RSSI</th>
+            ${obsHaveRadio ? '<th style="padding:4px 6px;text-align:left">Radio</th>' : ''}
             <th style="padding:4px 6px;text-align:left">${tr('Time')}</th>
           </tr></thead>
           <tbody>${observations.map(o => {
@@ -3868,6 +3888,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
               <td style="padding:4px 6px">${oPath.length}</td>
               <td style="padding:4px 6px">${o.snr != null ? o.snr + ' dB' : '—'}</td>
               <td style="padding:4px 6px">${o.rssi != null ? o.rssi + ' dBm' : '—'}</td>
+              ${obsHaveRadio ? `<td style="padding:4px 6px">${o.radio ? radioSettingHtml(o.radio) : '—'}</td>` : ''}
               <td style="padding:4px 6px">${renderTimestampCell(o.timestamp)}</td>
             </tr>`;
           }).join('')}</tbody>
@@ -3894,6 +3915,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
         const pktHash = pkt.hash || pkt.id;
         const obsParam = obsId ? `?obs=${obsId}` : '';
         history.replaceState(null, '', `#/packets/${pktHash}${obsParam}`);
+        updatePacketsUrl();
         renderDetail(panel, data, obsId);
       });
     });
@@ -4491,6 +4513,7 @@ var trn = globalThis.trn || function (n, one, other, p) { return tr(n === 1 ? on
     document.addEventListener('channel-colors-changed', function() { renderVisibleRows(); });
     window._packetsTestAPI = {
       typeName,
+      hashBytesText,
       obsName,
       getDetailPreview,
       sortGroupChildren,

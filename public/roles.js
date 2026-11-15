@@ -434,7 +434,8 @@ var tr = globalThis.tr || function (s, p) { return p ? s.replace(/\{(\w+)\}/g, f
     infraDegradedMs: 86400000,   // 24h
     infraSilentMs:   259200000,  // 72h
     nodeDegradedMs:  3600000,    // 1h
-    nodeSilentMs:    86400000    // 24h
+    nodeSilentMs:    86400000,   // 24h
+    relayActiveMs:   86400000    // healthThresholds.relayActiveHours, default 24h
   };
 
   // Helper: get degraded/silent thresholds for a role (backward compat)
@@ -610,6 +611,7 @@ var tr = globalThis.tr || function (s, p) { return p ? s.replace(/\{(\w+)\}/g, f
   window.MeshConfigReady = fetch('/api/config/client').then(function (r) { return r.json(); }).then(function (cfg) {
     window.MC_CLIENT_RX_COVERAGE = cfg.clientRxCoverage === true;
     window.MC_CLIENT_RF_SAMPLES = cfg.clientRfSamples === true;
+    window.MC_CLIENT_RX_APP_URL = typeof cfg.clientRxAppUrl === 'string' ? cfg.clientRxAppUrl : '';
     // Coverage is opt-in: the nav link is NOT in static HTML (so the default-off
     // nav matches upstream and the nav-overflow tests). Inject it after Analytics
     // only when enabled, then nudge applyNavPriority (it re-runs on 'resize').
@@ -681,7 +683,7 @@ var tr = globalThis.tr || function (s, p) { return p ? s.replace(/\{(\w+)\}/g, f
       ? { disabledTabs: Array.isArray(cfg.customizer.disabledTabs) ? cfg.customizer.disabledTabs : [] }
       : { disabledTabs: [] };
     // Optional user management: present only when the server enables it.
-    window.MC_USER_MGMT = (cfg.userManagement && cfg.userManagement.enabled) ? { enabled: true, channelProposals: !!cfg.userManagement.channelProposals, notifications: !!cfg.userManagement.notifications } : null;
+    window.MC_USER_MGMT = (cfg.userManagement && cfg.userManagement.enabled) ? { enabled: true, channelProposals: !!cfg.userManagement.channelProposals, notifications: !!cfg.userManagement.notifications, observerLogins: !!cfg.userManagement.observerLogins } : null;
     // #1574 — operator-configurable cap on /live map node count.
     if (cfg.liveMapMaxNodes != null) window.LIVE_MAP_MAX_NODES = cfg.liveMapMaxNodes;
     // #1784 — path trust threshold: minimum hash bytes for mapping evidence.

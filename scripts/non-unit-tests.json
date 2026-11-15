@@ -96,7 +96,9 @@
       "tests/e2e/test-logo-pulse-1173-e2e.js",
       "tests/e2e/test-logo-rebrand-e2e.js",
       "tests/e2e/test-logo-theme-e2e.js",
+      "tests/e2e/test-map-deeplink-path-params-e2e.js",
       "tests/e2e/test-map-estimated-e2e.js",
+      "tests/e2e/test-map-foreign-advert-e2e.js",
       "tests/e2e/test-reported-nodes-e2e.js",
       "tests/e2e/test-map-modal-fluid-e2e.js",
       "tests/e2e/test-map-nodes-pagination-e2e.js",
@@ -107,10 +109,12 @@
       "tests/e2e/test-nav-priority-1311-e2e.js",
       "tests/e2e/test-nav-priority-1391-e2e.js",
       "tests/e2e/test-neighbor-map-btn-clip-e2e.js",
+      "tests/e2e/test-node-quick-actions-e2e.js",
       "tests/e2e/test-node-reach-coverage-e2e.js",
       "tests/e2e/test-node-reach-e2e.js",
       "tests/e2e/test-nodes-export-e2e.js",
       "tests/e2e/test-observer-iata-1188-e2e.js",
+      "tests/e2e/test-observer-detail-ownership-e2e.js",
       "tests/e2e/test-packets-compact-columns-e2e.js",
       "tests/e2e/test-packets-node-filter-e2e.js",
       "tests/e2e/test-packets-scope-column.js",
@@ -133,6 +137,8 @@
     "reason": "Requires jsdom. The JS unit gate runs with no node_modules at all (its job has no npm install), so a suite needing a third-party module cannot live in test-all.sh. It runs in the E2E job, which does npm ci, and is invoked by its own deploy.yml line.",
     "files": [
       "tests/e2e/test-region-quick-picks.js",
+      "tests/e2e/test-radio-setting-1869-e2e.js",
+      "tests/e2e/test-observer-neighbors-2270-e2e.js",
       "tests/e2e/test-table-sort.js"
     ]
   },

@@ -105,6 +105,7 @@ func main() {
 	if err != nil {
 		log.Printf("[config] warning: %v (using defaults)", err)
 	}
+	warnClientRxAppURL(cfg)
 
 	// CLI flags override config
 	if port > 0 {
@@ -444,6 +445,12 @@ func main() {
 	} else {
 		log.Printf("[known-channels] disabled (knownChannelsUrl unset in config)")
 	}
+
+	// Radio settings observers listened on, over time (#1869). Small tables,
+	// reloaded once a minute; see radio_history.go.
+	rhCtx, stopRadioHistory := context.WithCancel(context.Background())
+	runRadioHistory(rhCtx, database.conn)
+	defer stopRadioHistory()
 
 	// LoRa RF parameters from the MeshCore map (issue #1268). OPT-IN, like
 	// the known-channels catalogue: without rfParams.nodesUrl nothing is

@@ -320,6 +320,11 @@ window.preserveCompareSelection = function preserveCompareSelection(prevIds, tbo
   // parallel thresholds, the new ObserversSummary regression test breaks.
   window.observerHealthStatus = healthStatus;
 
+  // #2270: latest /neighbors report, shared with the observer page.
+  function neighborsCell(o) {
+    return window.ObserverNeighbors ? window.ObserverNeighbors.cell(o) : '<span class="text-muted">—</span>';
+  }
+
   function packetBadge(o) {
     const warnIcon = '<svg class="ph-icon" aria-hidden="true" focusable="false"><use href="/icons/phosphor-sprite.svg#ph-warning"></use></svg>';
     const broadcastIcon = '<svg class="ph-icon" aria-hidden="true" focusable="false"><use href="/icons/phosphor-sprite.svg#ph-broadcast"></use></svg>';
@@ -396,7 +401,7 @@ window.preserveCompareSelection = function preserveCompareSelection(prevIds, tbo
       <div class="obs-table-scroll table-fluid-wrap"><table class="data-table obs-table" id="obsTable">
         <caption class="sr-only">${tr('Observer status and statistics')}</caption>
         <thead><tr>
-          <th scope="col" data-priority="1" data-sort-key="status" data-type="numeric">${tr('Status')}</th><th scope="col" data-priority="1" data-sort-key="name">${tr('Name')}</th><th scope="col" data-priority="3" data-sort-key="region">${tr('Region')}</th><th scope="col" data-priority="2" data-sort-key="last_seen" data-type="numeric">${tr('Last Status')}</th><th scope="col" data-priority="2" data-sort-key="last_packet_at" data-type="numeric">${tr('Last Packet')}</th>
+          <th scope="col" data-priority="1" data-sort-key="status" data-type="numeric">${tr('Status')}</th><th scope="col" data-priority="1" data-sort-key="name">${tr('Name')}</th><th scope="col" data-priority="3" data-sort-key="region">${tr('Region')}</th><th scope="col" data-priority="2" data-sort-key="last_seen" data-type="numeric">${tr('Last Status')}</th><th scope="col" data-priority="2" data-sort-key="last_packet_at" data-type="numeric">${tr('Last Packet')}</th><th scope="col" data-priority="3" data-sort-key="neighbors" data-type="numeric" title="Latest /neighbors report: when it arrived and how many neighbors it named">Neighbors</th>
           <th scope="col" data-priority="3" data-sort-key="packet_health" data-type="numeric">${tr('Packet Health')}</th><th scope="col" data-priority="4" data-sort-key="packet_count" data-type="numeric">${tr('Total Packets')}</th><th scope="col" data-priority="3" data-sort-key="packets_hour" data-type="numeric">${tr('Packets/Hour')}</th><th scope="col" data-priority="3" data-sort-key="airtime_1h" data-type="numeric" title="${tr('TX airtime share over the last hour (duty cycle)')}">TX 1h</th><th scope="col" data-priority="4" data-sort-key="clock_offset" data-type="numeric">${tr('Clock Offset')}</th><th scope="col" data-priority="4" data-sort-key="uptime" data-type="numeric">${tr('Uptime')}</th><th scope="col" data-priority="4" data-sort-key="firmware">${tr('Firmware')}</th><th scope="col" data-priority="4" data-sort-key="client_version">${tr('Client')}</th>
           <th scope="col" data-priority="1" class="col-compare-select" style="width:32px"><span class="sr-only">${tr('Select for compare')}</span></th>
         </tr></thead>
@@ -412,6 +417,7 @@ window.preserveCompareSelection = function preserveCompareSelection(prevIds, tbo
           // NaN last). Empty string ⇒ NaN ⇒ missing-sorts-last.
           const _lastSeenMs  = o.last_seen      ? new Date(o.last_seen).getTime()      : '';
           const _lastPktMs   = o.last_packet_at ? new Date(o.last_packet_at).getTime() : '';
+          const _neighborsMs = o.neighbors_report_at ? new Date(o.neighbors_report_at).getTime() : '';
           const _firstSeenMs = o.first_seen     ? new Date(o.first_seen).getTime()     : 0;
           const _uptimeMs    = _firstSeenMs ? (Date.now() - _firstSeenMs) : '';
           const _skewSec = (obsSkewMap[o.id] && obsSkewMap[o.id].samples)
@@ -429,6 +435,7 @@ window.preserveCompareSelection = function preserveCompareSelection(prevIds, tbo
             <td data-value="${escapeHtml(o.iata || '')}">${o.iata ? `<span class="badge-region">${escapeHtml(o.iata)}</span>` : '—'}</td>
             <td data-value="${_lastSeenMs}">${timeAgo(o.last_seen)}</td>
             <td data-testid="obs-cell-last-packet" data-value="${_lastPktMs}">${o.last_packet_at ? timeAgo(o.last_packet_at) : '<span class="text-muted">—</span>'}</td>
+            <td data-testid="obs-cell-neighbors" data-value="${_neighborsMs}">${neighborsCell(o)}</td>
             <td data-value="${_healthRank}">${packetBadge(o)}</td>
             <td data-testid="obs-cell-packet-count" data-value="${_packetCount}">${(o.packet_count || 0).toLocaleString()}</td>
             <td data-value="${_packetsHour}">${sparkBar(o.packetsLastHour || 0, maxPktsHr)}</td>
@@ -543,6 +550,7 @@ window.preserveCompareSelection = function preserveCompareSelection(prevIds, tbo
         '<dt>' + tr('Region') + '</dt><dd>' + (o.iata ? '<span class="badge-region">' + escapeHtml(o.iata) + '</span>' : '—') + '</dd>' +
         '<dt>' + tr('Last status') + '</dt><dd>' + timeAgo(o.last_seen) + '</dd>' +
         '<dt>' + tr('Last packet') + '</dt><dd>' + (o.last_packet_at ? timeAgo(o.last_packet_at) : '—') + '</dd>' +
+        '<dt>' + tr('Neighbors') + '</dt><dd>' + neighborsCell(o) + '</dd>' +
         '<dt>' + tr('Total packets') + '</dt><dd>' + (o.packet_count || 0).toLocaleString() + '</dd>' +
         '<dt>' + tr('Packets/hr') + '</dt><dd>' + pkts + '</dd>' +
         '<dt>' + tr('Clock offset') + '</dt><dd>' + skewLine + '</dd>' +

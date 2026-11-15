@@ -2613,10 +2613,15 @@
       const roleColor = ROLE_COLORS[n.role] || '#6b7280';
       const roleLabel = tr((ROLE_LABELS[n.role] || n.role || 'unknown').replace(/s$/, ''));
       const hasLoc = n.lat != null && n.lon != null;
-      const lastSeen = formatLiveTimestampHtml(n.last_seen);
-      const health = getHealthStatus(n.role, n.last_seen);
-      const statusDot = health === 'healthy' ? 'health-green' : health === 'degraded' ? 'health-yellow' : 'health-red';
-      const statusLabel = health === 'healthy' ? tr('Online') : health === 'degraded' ? tr('Degraded') : tr('Offline');
+      // Both endpoints carry certain activity; use the newest without changing
+      // the cached node. Shared-prefix relay traffic alone remains uncertain.
+      const activityNode = Object.assign({}, n, { _lastHeard: stats.lastHeard });
+      const heardMs = window.getEffectiveHeardMs(activityNode);
+      const lastActivity = formatLiveTimestampHtml(heardMs);
+      const health = getHealthStatus(n.role, heardMs);
+      const uncertain = getNodeStatus(activityNode) === 'uncertain';
+      const statusDot = uncertain ? 'text-muted' : health === 'healthy' ? 'health-green' : health === 'degraded' ? 'health-yellow' : 'health-red';
+      const statusLabel = uncertain ? 'Uncertain' : health === 'healthy' ? tr('Online') : health === 'degraded' ? tr('Degraded') : tr('Offline');
 
       let html = `
         <div style="padding:16px;">
@@ -2632,7 +2637,7 @@
             <code style="font-size:10px;word-break:break-all;">${escapeHtml(n.public_key)}</code>
           </div>
           <table style="font-size:12px;width:100%;border-collapse:collapse;">
-            <tr><td style="color:var(--text-muted);padding:4px 8px 4px 0;">${tr('Last Seen')}</td><td>${lastSeen}</td></tr>
+            <tr><td style="color:var(--text-muted);padding:4px 8px 4px 0;">${tr('Last Activity')}</td><td>${lastActivity}</td></tr>
             <tr><td style="color:var(--text-muted);padding:4px 8px 4px 0;">${tr('Adverts')}</td><td>${n.advert_count || 0}</td></tr>
             ${'configured_scope' in n && n.configured_scope !== null ? `<tr><td style="color:var(--text-muted);padding:4px 8px 4px 0;" title="${tr('Region scopes this node has configured, confirmed via an observer /neighbors report (status=responded) — concrete evidence (#1865).')}${n.configured_scope_at ? ' ' + tr('Last confirmed {time}.', { time: escapeHtml(String(n.configured_scope_at)) }) : ''}">${tr('Configured scope')} <span style="color:var(--status-green-text)" role="img" aria-label="${tr('confirmed')}"><svg class="ph-icon" aria-hidden="true"><use href="/icons/phosphor-sprite.svg#ph-check"/></svg></span></td><td>${n.configured_scope === '' ? '<span style="color:var(--text-muted)">' + tr('none configured') + '</span>' : `<code style="color:var(--link-color)">${escapeHtml(n.configured_scope)}</code>`}</td></tr>` : ''}
             ${'default_scope' in n ? `<tr><td style="color:var(--text-muted);padding:4px 8px 4px 0;">${tr('Scope')}</td><td>${n.default_scope === null ? '<span style="color:var(--text-muted)">—</span>'
