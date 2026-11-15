@@ -89,6 +89,9 @@ async function liveDetail(node, stats = {}, healthFailed = false) {
       return { node };
     },
     escapeHtml: String,
+    // English pass-through for the i18n helpers (public/i18n.js).
+    tr: (s, p) => (p ? s.replace(/\{(\w+)\}/g, (m, k) => (k in p ? String(p[k]) : m)) : s),
+    trn: (n, one, other, p) => (n === 1 ? one : other).replace(/\{(\w+)\}/g, (m, k) => (k === 'count' ? String(n) : (p && k in p ? String(p[k]) : m))),
     formatLiveTimestampHtml: (value) => Number.isNaN(value) ? '—' : String(value),
     activeNodeDetailKey: null,
   };
